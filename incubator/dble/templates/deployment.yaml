@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "dble.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "dble.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+{{- with .Values.deploymentAnnotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ template "dble.fullname" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "dble.fullname" . }}
+        release: {{ .Release.Name }}
+{{- with .Values.podLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+      {{- end }}
+      initContainers:
+      - name: test-zookeeper
+        image: "{{ .Values.zookeeper.image.name }}:{{ .Values.zookeeper.image.tag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy | quote }}
+        command:
+        - bash
+        - "-c"
+        - |
+          #!/bin/bash
+          until echo ruok | nc {{ printf "%s-%s" .Release.Name "zookeeper" | trunc 63 | trimSuffix "-" }} 2181
+          do
+            sleep 1
+          done
+      containers:
+      - name: dble
+        image: "{{ .Values.dble.image }}:{{ .Values.dble.imageTag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy | quote }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        command:
+        - bash
+        - "-c"
+        - |
+          #!/bin/bash
+          set -e
+          if [ -d /config ];then
+            cp -f /config/* /usr/local/dble/conf
+            sed -i "s/@@HOSTNAME@@/`hostname`/g" /usr/local/dble/conf/myid.properties
+          fi
+          cd /usr/local/dble/bin
+          ./init_zk_data.sh
+          ./dble console
+        ports:
+        - name: dble
+          containerPort: 8066
+        - name: admin
+          containerPort: 9066
+        livenessProbe:
+          exec:
+            command:
+            - /usr/local/dble/bin/dble
+            - status
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /usr/local/dble/bin/dble
+            - status
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        volumeMounts:
+        - name: configurations
+          mountPath: /config
+      volumes:
+      - name: configurations
+        configMap:
+          name: {{ template "dble.fullname" . }}-conf
+

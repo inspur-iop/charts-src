@@ -1,0 +1,17 @@
+apiVersion: v1
+name: dble
+version: 0.0.1
+appVersion: 2.19.09
+description: DBLE is a high scalability middle-ware for MySQL sharding.
+keywords:
+- dble
+- mysql
+- drds
+home: https://opensource.actionsky.com/
+sources:
+- https://github.com/actiontech/dble
+icon: https://github.com/actiontech/dble/raw/master/docs/dble_logo.png
+maintainers:
+- name: zhaoshan
+  email: zhaoshan@inspur.com
+engine: gotpl

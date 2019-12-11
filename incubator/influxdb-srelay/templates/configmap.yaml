@@ -1,0 +1,393 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "influxdb-srelay.fullname" . }}-conf
+  namespace: {{ .Release.Namespace }}
+data:
+  influxdb-srelay.conf: |
+    ###############################
+    ##
+    ## InfluxDB Single instances Config
+    ##
+    ###############################
+    
+    # InfluxDB Backend InfluxDB01
+    [[influxdb]]
+      name = "influxdb01"
+      location = "{{ .Values.influxdbCluster.node1.location }}"
+      timeout = "{{ .Values.influxdbCluster.node1.timeout | default "10s" }}"
+    
+    # InfluxDB Backend InfluxDB02
+    [[influxdb]]
+      name = "influxdb02"
+      location = "{{ .Values.influxdbCluster.node2.location }}"
+      timeout = "{{ .Values.influxdbCluster.node2.timeout | default "10s" }}"
+    
+    #################################
+    ##
+    ## InfluxDB Cluster Configs as a set 
+    ## of influxdb Single Instances
+    ##
+    ################################# 
+    
+    # Cluster for linux Metrics
+    [[influxcluster]]
+      # name = cluster id for route configs and logs
+      name  = "influxcluster"
+      # members = array of influxdb backends
+      members = ["@@Master@@","@@Slave@@"]
+      # where to write logs for all  operations in the cluster
+      log-file = "/var/log/influxdb-srelay/influxcluster.log"
+      # log level could be
+      # "panic","fatal","Error","warn","info","debug"
+      log-level = "warn"
+      # mode = of query and send data
+      # * HA : 
+      #       input write data will be sent to all members
+      #       queries will be sent  on the active node with 
+      #       data if query-router-endpoint-api config exist, else the first
+      # * Single:
+      #       input write data will be sent on the first member ( should be only one)
+      #     query will be sent on  the only first member (should be only one)
+      # * LB:  // NOT IMPLEMENTED YET //
+      type = "HA"
+      # the API to query on each input query
+      #  rate-limit
+      rate-limit = {{ int .Values.config.rateLimit | default 1000000 }}  
+      burst-limit =  {{ int .Values.config.burstLimit | default 2000000 }}
+      default-ping-response-code = 200
+      query-router-endpoint-api = ["http://{{ template "influxdb-srelay.fullname" . }}-0.{{ template "influxdb-srelay.fullname" . }}-headless:4090/api/queryactive","http://{{ template "influxdb-srelay.fullname" . }}-1.{{ template "influxdb-srelay.fullname" . }}-headless:4090/api/queryactive"]
+    
+    # HTTP Server
+    [[http]]
+      name = "http-influxdbcluster"
+      bind-addr = "0.0.0.0:9096"
+      log-file = "/var/log/influxdb_http_relay_9096.log"
+      log-level = "warn"
+      access-log = "/var/log/influxdb_access.log"
+    
+      rate-limit = {{ int .Values.config.rateLimit | default 1000000 }}
+      burst-limit = {{ int .Values.config.burstLimit | default 2000000 }}
+    
+      # TLS
+      {{- if .Values.tls.enabled }}
+      tls_cert = "/etc/influxdb-srelay/cert.pem"
+      tls_key = "/etc/influxdb-srelay/key.pem"
+      {{- end }}
+      
+      ## Define endpoints base config
+      ## endpoints can have read and write properties
+    
+      ## Example: /query endpoint
+      ## There are 2 routes that must do a read query  against a cluster
+      ## It expects that each HTTP request tries each route. If it fits the filter it will be enrouted
+      ## All requests that doesn't pass through  the filter tries the next route
+    
+      #
+      # IQL /query Endpoint
+      #
+      [[http.endpoint]]
+        uri=["/query"]
+        # type
+        #  * RD = http for query db
+        #  * WR = http for send data to the db
+        type="RD"
+        # source_format 
+        # Supported formats
+        # * ILP = influxdb-line-protocol
+        # * prom-write = prometheus write format
+        # * IQL = Influx Query Language
+        source_format="IQL"
+    
+        ## READ request - linux_METRICS
+        [[http.endpoint.route]]
+          name="pass_all"
+          # level:
+          #   * http => all following rules will work only with http params
+          #   * data => any of the following rules will need data inspection
+          level="http" # http or data
+          #log-inhit 
+          # true => will use the endpoint log as this route log
+          # false => will use its own log file ,  if not set the name <logdir>/http_route_<route_name>.log
+          log-inherit = false
+          #log-file = "query_route_linux_metrics.log"
+          log-level = "warn"
+    
+          ## Filter only the request with db param = linux_metrics
+          [[http.endpoint.route.filter]]
+            name="pass_all"
+            #------------------------------------------------------------------------------------
+            # Key for filter usage could be only at http level parameters (header/query)
+            #  Header based
+            #  -------------
+            #    * authorization: Authorization Header 
+            #    * remote-address: Remote Address Header
+            #    * referer: Referer Header
+            #    * user-agent: User-Agent Header
+            #  Query Based 
+            #  -------------
+            #   (https://docs.influxdata.com/influxdb/v1.7/guides/querying_data/)
+            #   (https://docs.influxdata.com/influxdb/v1.7/tools/api/#write-http-endpoint)
+            #    * db [r/w]: InfluxDB to read / Write
+            #    * q [r]: InfluxQL query
+            #    * epoch [r]: precision on read queries
+            #    * precision [w] : precision on write queries
+            #    * chunked [r]: (see referenced doc)
+            #    * chunksize[r]: (see referenced doc)
+            #    * pretty[r]:(see referenced doc)
+            #    * u [r/w]: read/write user
+            #    * p [r/w]: read/write password
+            #    * rp[w]: retention policy
+            #    * consistency[w]: (see referenced doc)
+            #  Computed
+            #    * username: computed from authorization header or u parameters
+            # Key for Rule Usage (not this level) could be also data level parameters
+            #   * measurement: match the measurement name
+            #   * tag: match the tag value with tag key in key_aux
+            #   * field: match the field value with field key in key_aux (always as string!!!! at this level)
+            # ----------------------------------------------------------------------------------------------
+            key="db" #availabe http params
+            match=".*"
+    
+          ## Rule to route to cluster_linux
+          [[http.endpoint.route.rule]]
+            name="pass_all"
+            # Action Route
+            #   * route:
+            #       If key value (usually http level key) match with match parameter, The complete 
+            #       request will be sent to the cluster configured in to_cluster param
+            #       After processed Next rule step will have untouched data available for any other process
+            #
+            #   * route_db_from_data (enable multitenancy)
+            #       Will rename de db parameter depending for each point in data depending on
+            #       the matching with one point parameter , by example one tag, enable write data
+            #       to several databases (split data) from the same source.
+            #       with this rule 1 HTTP request will become N HTTP request to our backends
+            #       HTTP response will be logged without feedback with the original request
+            #       
+            #       Rigth now only support for maches on key:
+            #         * "measurement" : will send point to db = `value` parameter if measurement 
+            #                           name matches with `match` parameter regex
+            #         * "tagvalue": will send point do db = `value` parameter if point has a tag 
+            #                         with tag name == key_aux and its value matches with `match` parameter regex
+            #         * "tagname":       (Not supported yet)
+            #         * "fieldvalue":    (Not supported yet)
+            #         * "fieldname"      (Not supported yet)
+            #       After processed, next rule step will have original  untouched data available for any other process
+            #   * rename_http (not yet supported)
+            #   * rename_data 
+            #         If key value match with match parameter,some change will be done in the incomming point.
+            #         Key values could be:
+            #         * "measurement": will replace the measurement name with `value` parameter if match with `match` parameter
+            #         * "tagvalue":     (Not supported yet) will replace tag value with `value` parámeter on tags with tag name == key_aux, 
+            #                       if tag value match with `match` parameter
+            #         * "tagname":      (Not supported yet)
+            #         * "fieldvalue":   (Not supported yet)
+            #         * "fieldname":     (Not supported yet)
+            #       After processed, data to the next process have been changed (and original no longer available )
+            #   * drop_data             (not yet supported)
+            #   * break                 (not yet supported)
+            #
+            #
+            action="route"
+            # See 
+            key="db"
+            match=".*"
+            to_cluster="influxcluster"
+      # 
+      #
+      # IQL /write Endpoint 
+    
+      [[http.endpoint]]
+        uri=["/write"]
+        source_format="ILP"
+        type = "WR"
+        
+        ## WRITE request -  to linux_METRICS
+        [[http.endpoint.route]]
+          name="pass_all"
+          level="data"  # we can scan on measurements/tags/fields 
+    
+          ## match only points in database linux_metrics
+          [[http.endpoint.route.filter]]
+            name="pass_all"
+            key="db"
+            match=".*"
+    
+          ## Send to linux cluster if measurement  match "linux_ISS.*"
+          [[http.endpoint.route.rule]]
+            name="pass_all"
+            action="route"
+            key="db"
+            match=".*"
+            to_cluster="influxcluster"
+      
+  syncflux.toml: |
+    # -*- toml -*-
+    
+    # -------GENERAL SECTION ---------
+    # syncflux could work in several ways, 
+    # not all General config parameters works on all modes.
+    #  modes
+    #  "hamonitor" => enables syncflux as a daemon to sync 
+    #                2 Influx 1.X OSS db and sync data between them
+    #                when needed (does active monitoring )
+    #  "copy" => executes syncflux as a new process to copy data 
+    #            between master and slave databases
+    #  "replicashema" => executes syncflux as a new process to create 
+    #             the database/s and all its related retention policies 
+    #  "fullcopy" => does database/rp replication and after does a data copy
+    
+    [General]
+    # ------------------------
+    # logdir ( only valid on hamonitor action) 
+    #  the directory where to place logs 
+    #  will place the main log "
+    #  
+    
+     logdir = "./log"
+    
+    # ------------------------
+    # loglevel ( valid only for hamonitor actions ) 
+    #  set the log level , valid values are:
+    #  fatal,error,warn,info,debug,trace
+    # on copy/fullcopy actions  loglevel is mapped with 
+    #  (nothing) = Warning
+    #  -v = Info
+    #  -vv =  debug
+    #  -vvv = trace
+    
+     loglevel = "warn"
+    
+    # -----------------------------
+    # sync-mode (only valid on hamonitor action)
+    #  NOTE: rigth now only  "onlyslave" (one way sync ) is valied
+    #  (planned sync in two ways in the future)
+    
+     sync-mode = "onlyslave"
+    
+    # ---------------------------
+    # master-db choose one of the configured InfluxDB as a SlaveDB
+    # this parameter will be override by the command line -master parameter
+     
+     master-db = "@@Master@@"
+    
+    # ---------------------------
+    # slave-db choose one of the configured InfluxDB as a SlaveDB
+    # this parameter will be override by the command line -slave parameter
+     
+     slave-db = "@@Slave@@"
+    
+    # ------------------------------
+    # check-interval
+    # the inteval for health cheking for both master and slave databases
+     
+     check-interval = "{{ .Values.config.checkInterval | default "10s" }}"
+    
+    # ------------------------------
+    # min-sync-interval
+    # the inteval in which HA monitor will check both are ok and change
+    # the state of the cluster if not, making all needed recovery actions
+    
+     min-sync-interval = "{{ .Values.config.minSyncInterval | default "20s" }}"
+     
+    # ---------------------------------------------
+    # initial-replication
+    # tells syncflux if needed some type of replication 
+    # on slave database from master database on initialize 
+    # (only valid on hamonitor action)
+    #
+    # none:  no replication
+    # schema: database and retention policies will be recreated on the slave database
+    # data: data for all retention policies will be replicated 
+    #      be carefull: this full data copy could take hours,days.
+    # all:  will replicate first the schema and them the full data 
+    
+     initial-replication = "{{ .Values.config.initialReplication | default "none" }}"
+    
+    # 
+    # monitor-retry-durtion 
+    #
+    # syncflux only can begin work when master and slave database are both up, 
+    # if some of them is down synflux will retry infinitely each monitor-retry-duration to work.
+    
+     monitor-retry-interval = "{{ .Values.config.monitorRetryInterval | default "30s" }}"
+    
+    # 
+    # data-chuck-duration
+    #
+    # duration for each small, read  from master -> write to slave, chuck of data
+    # smaller chunks of data will use less memory on the syncflux process
+    # and also less resources on both master and slave databases
+    # greater chunks of data will improve sync speed 
+    
+     data-chuck-duration = "{{ .Values.config.dataChuckDuration | default "5m" }}"
+    
+    # 
+    #  max-retention-interval
+    #
+    # for infinite ( or bigger ) retention policies full replication should begin somewhere in the time
+    # this parameter set the max retention.
+     
+     max-retention-interval = "{{ .Values.config.maxRetentionInterval | default "8760h" }}" # 1 year
+    
+    #
+    #  rw-max-retries
+    #  
+    #  If any of the read ( from master) or write ( to slave ) querys fails , 
+    #  the query will be repeated at leas rw-max-retries
+     
+     rw-max-retries = {{ int .Values.config.rwMaxRetries | default 5 }}
+    
+    #  If any of the read ( from master) or write ( to slave ) querys fails , 
+    #  the query will be repeated at leas rw-max-retries and we can force a pause from at least rw-retry-delay
+     
+     rw-retry-delay = "{{ .Values.config.rwRetryDelay | default "10s" }}"
+    
+    # Num paralel  workers querying and writting at time on both databases (master & slave)
+    # 
+    
+     num-workers = {{ int .Values.config.numWorkers | default 4 }}
+    
+    # syncflux splits  all chunk data  to write into multiple writes of max-points-on-single-write 
+    # enables limitation on HTTP BODY REQUEST, avoiding errors like "Request Entity Too Large"
+    
+     max-points-on-single-write = {{ int .Values.config.maxPointsOnSingleWrite | default 20000 }}
+    
+     # ---- HTTP API SECTION (Only valid on hamonitor action)
+    # Enables an HTTP API endpoint to check the cluster health
+    
+    [http]
+     name = "http-syncflux"
+     bind-addr = "0.0.0.0:4090"
+     # admin-user = "admin"
+     # admin-passwd = "admin"
+     cookie-id = "mysupercokie"
+    
+    # ---- INFLUXDB  SECTION
+    # Sets a list of available DB's that can be used 
+    # as master or slaves db's on any of the posible actions
+    
+    [[influxdb]]
+     release = "1x"
+     name = "influxdb01"
+     location = "{{ .Values.influxdbCluster.node1.location }}"
+     timeout = "{{ .Values.influxdbCluster.node1.timeout | default "10s" }}"
+     {{- if .Values.influxdbCluster.node1.adminUser }}
+     admin-user = "{{ .Values.influxdbCluster.node1.adminUser }}"
+     {{- end }}
+     {{- if .Values.influxdbCluster.node1.adminPassword }}
+     admin-passwd = "{{ .Values.influxdbCluster.node1.adminPassword }}"
+     {{- end }}
+    
+    [[influxdb]]
+     release = "1x"
+     name = "influxdb02"
+     location = "{{ .Values.influxdbCluster.node2.location }}"
+     timeout = "{{ .Values.influxdbCluster.node2.timeout | default "10s" }}"
+     {{- if .Values.influxdbCluster.node2.adminUser }}
+     admin-user = "{{ .Values.influxdbCluster.node1.adminUser }}"
+     {{- end }}
+     {{- if .Values.influxdbCluster.node2.adminPassword }}
+     admin-passwd = "{{ .Values.influxdbCluster.node1.adminPassword }}"
+     {{- end }}

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "influxdb-srelay.fullname" . }}-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "influxdb-srelay.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  annotations:
+{{- if .Values.service.annotations }}
+{{ toYaml .Values.service.annotations | indent 4 }}
+{{- end }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: influxdb-srelay
+    port: 9096
+    targetPort: influxdb-srelay
+  - name: syncflux
+    port: 4090
+    targetPort: syncflux
+  selector:
+    app: {{ template "influxdb-srelay.fullname" . }}
+

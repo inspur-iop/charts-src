@@ -1,0 +1,291 @@
+dble:
+  image: "finisman/dble"
+  imageTag: "2.19.09"
+
+replicas: 2
+## Configure resource requests and limits
+## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+##
+resources: 
+  limits:
+    cpu: 1000m 
+    memory: 1Gi 
+
+## Specify an imagePullPolicy (Required)
+## It's recommended to change this to 'Always' if the image tag is 'latest'
+## ref: http://kubernetes.io/docs/user-guide/images/#updating-images
+##
+imagePullPolicy: IfNotPresent
+
+# Optionally specify an array of imagePullSecrets.
+# Secrets must be manually created in the namespace.
+# ref: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
+# imagePullSecrets:
+# - name: service-registry
+
+## Node selector
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+nodeSelector: {}
+
+## Tolerations for pod assignment
+## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+##
+tolerations: []
+
+## Configure the service
+## ref: http://kubernetes.io/docs/user-guide/services/
+service:
+  annotations: {}
+  ## Specify a service type
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services---service-types
+  type: ClusterIP 
+  dble:
+    port: 8066 
+    # nodePort: 
+  admin:
+    port: 9066
+    # nodePort:
+  # loadBalancerIP:
+
+# Deployment Annotations
+deploymentAnnotations: {}
+
+# To be added to the database server pod(s)
+podAnnotations: {}
+podLabels: {}
+
+# Configurations about JVM in wrapper.conf. See https://actiontech.github.io/dble-docs-cn/1.config_file/1.04_wrapper.conf.html
+wrapperAdditionalParameters:
+- "-XX:MaxPermSize=64M"
+- "-XX:+AggressiveOpts"
+- "-XX:MaxDirectMemorySize=1G"
+- "-Xmx512m"
+- "-Xms100m"
+- "-XX:+UseParNewGC"
+- "-XX:+UseConcMarkSweepGC"
+- "-XX:+UseCMSCompactAtFullCollection"
+- "-XX:CMSFullGCsBeforeCompaction=0"
+- "-XX:CMSInitiatingOccupancyFraction=70"
+
+# DBLE configuration files, exclude wrapper.conf. For more details see https://actiontech.github.io/dble-docs-cn/1.config_file/1.00_config_file.html
+configurationFiles:
+  server.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE dble:server SYSTEM "server.dtd">
+    <dble:server xmlns:dble="http://dble.cloud/" version="1.0">
+        <system>
+            <!-- base config -->
+            <!--<property name="bindIp">0.0.0.0</property>-->
+            <!--<property name="serverPort">8066</property> -->
+            <!--<property name="managerPort">9066</property> -->
+            <!--<property name="maxCon">0</property> -->
+            <!--<property name="processors">4</property>-->
+            <!--<property name="backendProcessors">12</property>-->
+            <!--<property name="processorExecutor">4</property> -->
+            <!--<property name="backendProcessorExecutor">12</property> -->
+            <!--<property name="complexExecutor">8</property> -->
+            <!--<property name="writeToBackendExecutor">4</property> -->
+    
+            <!--<property name="fakeMySQLVersion">5.6.20</property>-->
+            <property name="sequnceHandlerType">2</property>
+            <!-- serverBacklog size,default 2048-->
+            <property name="serverBacklog">2048</property>
+            <!--<property name="serverNodeId">1</property>-->
+            <!--<property name="showBinlogStatusTimeout">60000</property>-->
+    
+            <!--option-->
+            <!--<property name="useCompression">1</property>-->
+            <!--<property name="usingAIO">0</property>-->
+            <!--<property name="useZKSwitch">true</property>-->
+            <!--<property name="useThreadUsageStat">0</property>-->
+            <!--<property name="usePerformanceMode">0</property>-->
+    
+            <!-- query time cost statistics-->
+            <!--<property name="useCostTimeStat">0</property>-->
+            <!--<property name="maxCostStatSize">100</property>-->
+            <!--<property name="costSamplePercent">1</property>-->
+    
+            <!--connection -->
+            <!--<property name="charset">utf8mb4</property>-->
+            <!--<property name="maxPacketSize">4194304</property>-->
+            <!--<property name="txIsolation">3</property>-->
+    
+            <!--consistency-->
+            <!-- check the consistency of table structure between nodes,default not -->
+            <property name="checkTableConsistency">0</property>
+            <!-- check periodt, he default period is 60000 milliseconds -->
+            <property name="checkTableConsistencyPeriod">60000</property>
+            <!-- 1 check the consistency of global table, 0 is not -->
+            <property name="useGlobleTableCheck">0</property>
+            <property name="glableTableCheckPeriod">86400000</property>
+    
+            <!-- heartbeat check period -->
+            <property name="dataNodeIdleCheckPeriod">300000</property>
+            <property name="dataNodeHeartbeatPeriod">10000</property>
+    
+            <!-- processor check conn-->
+            <property name="processorCheckPeriod">1000</property><!-- unit millisecond -->
+            <property name="sqlExecuteTimeout">300</property><!-- unit second -->
+            <property name="idleTimeout">1800000</property><!-- unit millisecond -->
+    
+            <!-- transaction log -->
+            <!-- 1 enable record the transaction log, 0 disable ,the unit of transactionRatateSize is M -->
+            <property name="recordTxn">0</property>
+            <!--<property name="transactionLogBaseDir">/txlogs</property>-->
+            <!--<property name="transactionLogBaseName">server-tx</property>-->
+            <!--<property name="transactionRatateSize">16</property>-->
+    
+            <!-- XA transaction -->
+            <!-- use XA transaction ,if the mysql service crash,the unfinished XA commit/rollback will retry for several times
+           it is the check period for ,default is 1000 milliseconds-->
+            <property name="xaSessionCheckPeriod">1000</property>
+            <!-- use XA transaction ,the finished XA log will removed. the default period is 1000 milliseconds-->
+            <property name="xaLogCleanPeriod">1000</property>
+            <!-- XA Recovery Log path -->
+            <!--<property name="xaRecoveryLogBaseDir">/tmlogs/</property>-->
+            <!-- XA Recovery Log name -->
+            <!--<property name="xaRecoveryLogBaseName">tmlog</property>-->
+            <!-- XA Retry count, retry times in backend, 0 means always retry until success -->
+            <!--<property name="xaRetryCount">0</property>-->
+    
+    
+            <!-- true is use JoinStrategy, default false-->
+            <property name="useJoinStrategy">true</property>
+            <property name="nestLoopConnSize">4</property>
+            <property name="nestLoopRowsSize">2000</property>
+    
+            <!-- query memory used for per session,unit is M-->
+            <property name="otherMemSize">4</property>
+            <property name="orderMemSize">4</property>
+            <property name="joinMemSize">4</property>
+    
+            <!-- off Heap unit:bytes-->
+            <property name="bufferPoolChunkSize">4096</property>
+            <property name="bufferPoolPageNumber">256</property>
+            <property name="bufferPoolPageSize">2097152</property>
+            <!--<property name="mappedFileSize">2097152</property>-->
+    
+            <!-- sql statistics-->
+            <!-- 1 means use SQL statistics, 0 means not -->
+            <property name="useSqlStat">0</property>
+            <!--<property name="bufferUsagePercent">80</property>-->
+            <!--<property name="clearBigSqLResultSetMapMs">600000</property>-->
+            <!--<property name="sqlRecordCount">10</property>-->
+            <!--<property name="maxResultSet">524288</property>-->
+    
+            <!-- backSocket unit:bytes-->
+            <!--<property name="backSocketSoRcvbuf">4194304</property>-->
+            <!--<property name="backSocketSoSndbuf">1048576</property>-->
+            <!--<property name="backSocketNoDelay">1</property>-->
+    
+            <!-- frontSocket-->
+            <!--<property name="frontSocketSoRcvbuf">1048576</property>-->
+            <!--<property name="frontSocketSoSndbuf">4194304</property>-->
+            <!--<property name="frontSocketNoDelay">1</property>-->
+    
+            <!-- for join tmp results -->
+            <!--<property name="mergeQueueSize">1024</property>-->
+            <!--<property name="orderByQueueSize">1024</property>-->
+            <!--<property name="joinQueueSize">1024</property>-->
+    
+            <!-- if enable the slow query log -->
+            <property name="enableSlowLog">0</property>
+            <!-- the slow query log location -->
+            <!--<property name="slowLogBaseDir">./slowlogs</property>-->
+            <!--<property name="slowLogBaseName">slow-query</property>-->
+            <!-- the max period for flushing the slow query log from memory to disk  after last time , unit is second -->
+            <property name="flushSlowLogPeriod">1</property>
+            <!-- the max records for flushing the slow query log from memory to disk after last time -->
+            <property name="flushSlowLogSize">1000</property>
+            <!-- the threshold for judging if the query is slow , unit is millisecond -->
+            <property name="sqlSlowTime">100</property>
+    
+            <!-- used for load data,maxCharsPerColumn means max chars length for per column when load data  -->
+            <!--<property name="maxCharsPerColumn">65535</property>-->
+            <!-- used for load data, because dble need save to disk if loading file contains large size -->
+            <!--<property name="maxRowSizeToFile">10000</property>-->
+    
+            <!-- used for outerHa ,when the value is true ,one dataHost can only has one writeHost,and dataHost commands would be available-->
+            <!--<property name="useOuterHa">true</property>-->
+    
+        </system>
+    
+        <!-- firewall config -->
+        <!--
+        <firewall>
+        <whitehost>
+              <host host="127.0.0.1" user="root"/>
+              <host host="0:0:0:0:0:0:0:1" user="root"/>
+           </whitehost>
+           <blacklist check="true">
+           <property name="selelctAllow">false</property>
+           </blacklist>
+        </firewall>
+        -->
+        <!-- user config -->
+        <user name="man">
+            <property name="password">654321</property>
+            <property name="manager">true</property>
+        </user>
+    </dble:server>
+  schema.xml: |
+    <?xml version="1.0"?>
+    <!DOCTYPE dble:schema SYSTEM "schema.dtd">
+    <dble:schema xmlns:dble="http://dble.cloud/" version="1.0">
+        <!-- schema config -->
+        <!--
+        <schema name="testdb">
+        </schema>
+        -->
+        <!-- dataNode config -->
+        <!--
+        <dataNode name="dn1" dataHost="dataHost1" database="db_1"/>
+        <dataNode name="dn2" dataHost="dataHost2" database="db_2"/>
+        <dataNode name="dn3" dataHost="dataHost1" database="db_3"/>
+        <dataNode name="dn4" dataHost="dataHost2" database="db_4"/>
+        <dataNode name="dn5" dataHost="dataHost1" database="db_5"/>
+        <dataNode name="dn6" dataHost="dataHost2" database="db_6"/>
+        -->
+        
+        <!-- dataHost config -->
+        <!--
+        <dataHost name="dataHost1" maxCon="1000" minCon="10" balance="0" switchType="-1" slaveThreshold="100">
+            <heartbeat>select 1</heartbeat>
+            <writeHost host="hostM1" url="ip1:3306" user="your_user" password="your_psw">
+                <readHost host="hostS1" url="ip2:3306" user="your_user" password="your_psw"/>
+            </writeHost>
+        </dataHost>
+        </dataHost>
+        -->
+    </dble:schema>
+  # rule.xml: |
+  # ehcache.xml: |
+  # auto-sharding-long.txt: |
+  # auto-sharding-rang-mod.txt: |
+  # autopartition-long.txt: |
+  # cacheservice.properties: |
+  # dbseq.sql: |
+  # index_to_charset.properties: |
+  # migrateTables.properties: |
+  # partition-hash-int.txt: |
+  # partition-range-mod.txt: |
+  # sequence_conf.properties: |
+  # sequence_db_conf.properties: |
+  # sequence_distributed_conf.properties: |
+  # sequence_time_conf.properties: |
+  # sharding-by-enum.txt: |
+
+zookeeper:
+  resources: {}
+  persistence:
+    enabled: true
+    ## zookeeper data Persistent Volume Storage Class
+    ## If defined, storageClassName: <storageClass>
+    ## If set to "-", storageClassName: "", which disables dynamic provisioning
+    ## If undefined (the default) or set to null, no storageClassName spec is
+    ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+    ##   GKE, AWS & OpenStack)
+    ##
+    storageClass: "-" 
+    accessMode: ReadWriteOnce
+    size: 5Gi

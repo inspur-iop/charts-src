@@ -1,0 +1,17 @@
+apiVersion: v1
+name: influxdb-srelay
+version: 0.0.1
+appVersion: 0.6.0
+description: An InfluxDB proxy for achieving a highly available setup on 2 InfluxDB instances.
+keywords:
+- influxdb
+- ha
+- proxy
+home: https://github.com/toni-moreno/influxdb-srelay
+sources:
+- https://github.com/toni-moreno/influxdb-srelay
+- https://github.com/toni-moreno/syncflux
+maintainers:
+- name: zhaoshan
+  email: zhaoshan@inspur.com
+engine: gotpl

@@ -1,0 +1,167 @@
+busybox:
+  image: "busybox"
+  imageTag: "1.30.1"
+srelay:
+  image: "finisman/influxdb-srelay"
+  imageTag: "0.6.0"
+  ## Configure resource requests and limits
+  ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+  ##
+  resources: {}
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 3
+
+syncflux:
+  image: "finisman/syncflux"
+  imageTag: "0.6.5"
+  ## Configure resource requests and limits
+  ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+  ##
+  resources:
+    requests: {}
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 3
+
+## Specify an imagePullPolicy (Required)
+## It's recommended to change this to 'Always' if the image tag is 'latest'
+## ref: http://kubernetes.io/docs/user-guide/images/#updating-images
+##
+imagePullPolicy: IfNotPresent
+
+# Optionally specify an array of imagePullSecrets.
+# Secrets must be manually created in the namespace.
+# ref: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
+# imagePullSecrets:
+#   - name: service-registry
+
+## Scheduler name
+## ref: https://kubernetes.io/docs/concepts/scheduling/kube-scheduler/
+schedulerName: 
+
+## Node selector
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+nodeSelector: {}
+
+## Tolerations for pod assignment
+## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+##
+tolerations: []
+
+## Affinity for pod assignment
+## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+##
+affinity: {}
+
+## Configure the service
+## ref: http://kubernetes.io/docs/user-guide/services/
+service:
+  annotations: {}
+  ## Specify a service type
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services---service-types
+  type: ClusterIP
+  port: 9096
+  # nodePort: 32000
+  # loadBalancerIP:
+
+tls:
+  enabled: false
+#  cert: |-
+#    -----BEGIN CERTIFICATE-----
+#    ...
+#    -----END CERTIFICATE-----
+#  key: |-
+#    -----BEGIN RSA PRIVATE KEY-----
+#    ...
+#    -----END RSA PRIVATE KEY-----
+
+# Deployment Annotations
+deploymentAnnotations: {}
+
+# To be added to the database server pod(s)
+podAnnotations: {}
+podLabels: {}
+
+## Set pod priorityClassName
+# priorityClassName: {}
+
+influxdbCluster:
+  node1:
+    location: http://10.110.25.190:8186/
+    timeout: 10s
+    adminUser: 
+    adminPassword: 
+  node2:
+    location: http://10.110.25.190:8286/
+    timeout: 10s
+    adminUser: 
+    adminPassword: 
+
+config:
+  # request limits per second
+  rateLimit: 1000000
+  burstLimit: 2000000
+  # check-interval
+  # the inteval for health cheking for both master and slave databases
+  checkInterval: 10s
+  # min-sync-interval
+  # the inteval in which HA monitor will check both are ok and change
+  # the state of the cluster if not, making all needed recovery actions
+  minSyncInterval: 20s
+  # initial-replication
+  # tells syncflux if needed some type of replication 
+  # on slave database from master database on initialize 
+  # (only valid on hamonitor action)
+  #
+  # none:  no replication
+  # schema: database and retention policies will be recreated on the slave database
+  # data: data for all retention policies will be replicated 
+  #      be carefull: this full data copy could take hours,days.
+  # all:  will replicate first the schema and them the full data   
+  initialReplication: all
+  # monitor-retry-interval 
+  # syncflux only can begin work when master and slave database are both up, 
+  # if some of them is down synflux will retry infinitely each monitor-retry-interval to work.  
+  monitorRetryInterval: 30s
+  # data-chuck-duration
+  # duration for each small, read  from master -> write to slave, chuck of data
+  # smaller chunks of data will use less memory on the syncflux process
+  # and also less resources on both master and slave databases
+  # greater chunks of data will improve sync speed   
+  dataChuckDuration: 5m
+  #  max-retention-interval
+  # for infinite ( or bigger ) retention policies full replication should begin somewhere in the time
+  # this parameter set the max retention.  
+  maxRetentionInterval: 8760h
+  #  rw-max-retries
+  #  If any of the read ( from master) or write ( to slave ) querys fails , 
+  #  the query will be repeated at leas rw-max-retries  
+  rwMaxRetries: 5
+  #  If any of the read ( from master) or write ( to slave ) querys fails , 
+  #  the query will be repeated at leas rw-max-retries and we can force a pause from at least rw-retry-delay  
+  rwRetryDelay: 10s
+  # Num paralel  workers querying and writting at time on both databases (master & slave)
+  numWorkers: 4
+  # syncflux splits  all chunk data  to write into multiple writes of max-points-on-single-write 
+  # enables limitation on HTTP BODY REQUEST, avoiding errors like "Request Entity Too Large"
+  maxPointsOnSingleWrite: 20000
+  

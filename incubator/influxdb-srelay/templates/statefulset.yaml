@@ -1,0 +1,153 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: {{ template "influxdb-srelay.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "influxdb-srelay.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+{{- with .Values.deploymentAnnotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+
+spec:
+  serviceName: {{ template "influxdb-srelay.fullname" . }}-headless
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: {{ template "influxdb-srelay.fullname" . }}
+{{- with .Values.podLabels }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+      {{- if .Values.schedulerName }}
+      schedulerName: "{{ .Values.schedulerName }}"
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 8 }}
+      {{- end }}
+      affinity:
+      {{- if .Values.affinity }}
+{{ toYaml .Values.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: "{{ .Values.priorityClassName }}"
+      {{- end }}
+      initContainers:
+      - name: init-conf
+        image: "{{ .Values.busybox.image }}:{{ .Values.busybox.imageTag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy | quote }}
+        command: 
+        - sh
+        - "-c"
+        - |
+          #!/bin/sh
+          set -e
+          cp /configmap/* /conf
+          idx=${HOSTNAME##*-}
+          if [ "$idx" = "0" ];then
+            sed -i "s/@@Master@@/influxdb01/g" /conf/*
+            sed -i "s/@@Slave@@/influxdb02/g" /conf/*
+          else
+            sed -i "s/@@Master@@/influxdb02/g" /conf/*
+            sed -i "s/@@Slave@@/influxdb01/g" /conf/*
+          fi
+          if [ -d /tls ];then
+            cp /tls/*.pem /conf
+          fi
+          
+        volumeMounts:
+        - name: configurations
+          mountPath: /conf
+        - name: configmap
+          mountPath: /configmap
+        {{- if .Values.tls.enabled }}
+        - name: tls
+          mountPath: /tls
+        {{- end }}
+      containers:
+      - name: influxdb-srelay
+        image: "{{ .Values.srelay.image }}:{{ .Values.srelay.imageTag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy | quote }}
+        resources:
+{{ toYaml .Values.srelay.resources | indent 10 }}
+        ports:
+        - name: influxdb-srelay
+          containerPort: 9096
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: influxdb-srelay
+          initialDelaySeconds: {{ .Values.srelay.livenessProbe.initialDelaySeconds | default 5 }}
+          periodSeconds: {{ .Values.srelay.livenessProbe.periodSeconds | default 10 }}
+          timeoutSeconds: {{ .Values.srelay.livenessProbe.timeoutSeconds | default 1 }}
+          successThreshold: {{ .Values.srelay.livenessProbe.successThreshold | default 1 }}
+          failureThreshold: {{ .Values.srelay.livenessProbe.failureThreshold | default 3 }}
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: influxdb-srelay
+          initialDelaySeconds: {{ .Values.srelay.readinessProbe.initialDelaySeconds | default 5 }}
+          periodSeconds: {{ .Values.srelay.readinessProbe.periodSeconds | default 10 }}
+          timeoutSeconds: {{ .Values.srelay.readinessProbe.timeoutSeconds | default 1 }}
+          successThreshold: {{ .Values.srelay.readinessProbe.successThreshold | default 1 }}
+          failureThreshold: {{ .Values.srelay.readinessProbe.failureThreshold | default 3 }}
+        volumeMounts:
+        - name: configurations
+          mountPath: /etc/influxdb-srelay/
+      - name: syncflux
+        image: "{{ .Values.syncflux.image }}:{{ .Values.syncflux.imageTag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy | quote }}
+        resources:
+{{ toYaml .Values.syncflux.resources | indent 10 }}
+        ports:
+        - name: syncflux
+          containerPort: 4090
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: syncflux
+          initialDelaySeconds: {{ .Values.syncflux.livenessProbe.initialDelaySeconds | default 5 }}
+          periodSeconds: {{ .Values.syncflux.livenessProbe.periodSeconds | default 10 }}
+          timeoutSeconds: {{ .Values.syncflux.livenessProbe.timeoutSeconds | default 1 }}
+          successThreshold: {{ .Values.syncflux.livenessProbe.successThreshold | default 1 }}
+          failureThreshold: {{ .Values.syncflux.livenessProbe.failureThreshold | default 3 }}
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: syncflux
+          initialDelaySeconds: {{ .Values.syncflux.livenessProbe.initialDelaySeconds | default 5 }}
+          periodSeconds: {{ .Values.syncflux.livenessProbe.periodSeconds | default 10 }}
+          timeoutSeconds: {{ .Values.syncflux.livenessProbe.timeoutSeconds | default 1 }}
+          successThreshlureThreshold: {{ .Values.syncflux.livenessProbe.failureThreshold | default 3 }}
+        volumeMounts:
+        - name: configurations
+          mountPath: /etc/syncflux/
+      volumes:
+      - name: configmap
+        configMap:
+          name: {{ template "influxdb-srelay.fullname" . }}-conf
+      - name: configurations
+        emptyDir: {}
+      {{- if .Values.tls.enabled }}
+      - name: tls
+        secret:
+          secretName: {{ template "influxdb-srelay.fullname" . }}
+      {{- end }}

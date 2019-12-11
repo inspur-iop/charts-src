@@ -1,0 +1,5 @@
+InfluxDB-srelay can be accessed via port 9096 on the following DNS name from within your cluster:
+{{ template "influxdb-srelay.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+
+POST /query requests like ALTER, CREATE, DELETE, DROP, GRANT, KILL, REVOKE, SELECT INTO are NOT SUPPORTED!
+DO NOT use GET /query to send administrative commands like ALTER, CREATE, etc., the request will be sent to only one influxdb instance.

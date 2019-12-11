@@ -1,0 +1,25 @@
+Redis cluster can be accessed via port {{ .Values.redis.port }} on the following DNS names from within your cluster:
+{{- $fullName := include "redis-cluster.fullname" . }}
+{{- $shards := int (toString .Values.shards) }}
+{{- $replicas := int (toString (add .Values.shardReplicas 1)) }}
+{{- $root := . }}
+{{- range $i := until $shards }}
+{{- range $j := until $replicas }}
+{{ $fullName }}-shard{{ $i }}-announce-{{ $j }}.{{ $root.Release.Namespace }}.svc.cluster.local
+{{- end }}
+{{- end }}
+
+To connect to your Redis Cluster:
+
+{{- if .Values.auth }}
+1. To retrieve the redis password:
+   echo $(kubectl get secret {{ template "redis-cluster.fullname" . }} -o "jsonpath={.data['auth']}" | base64 --decode)
+
+2. Connect using the Redis CLI (inside container):
+
+   redis-cli -a <REDIS-PASS-FROM-SECRET> -c -h {{ template "redis-cluster.fullname" . }}-shard0-announce-0.{{ .Release.Namespace }}.svc.cluster.local -p {{ .Values.redis.port }}
+{{- else }}
+1. Connect using the Redis CLI:
+
+  redis-cli -c -h {{ template "redis-cluster.fullname" . }}-shard0-announce-0.{{ .Release.Namespace }}.svc.cluster.local -p {{ .Values.redis.port }}
+{{- end }}

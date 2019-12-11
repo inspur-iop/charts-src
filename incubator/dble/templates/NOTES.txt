@@ -1,0 +1,10 @@
+DBLE can be accessed via port 8066 on the following DNS name from within your cluster:
+{{ template "dble.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+
+eg: mysql -u[mysql-user] -p[mysql-password] -h {{ template "dble.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local -P 8066
+
+DBLE admin portal can be accessed via port 9066 on the same DNS name:
+
+eg: mysql -u[dble-administrator] -p[dble-password] -h {{ template "dble.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local -P 9066
+
+For more usage, see https://actiontech.github.io/dble-docs-cn/
