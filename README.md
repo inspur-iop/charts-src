@@ -1,2 +1,2 @@
 # charts-src
-Source code of charts in inspur-iop/charts
+Source code of charts in https://inspur-iop.github.io/charts
