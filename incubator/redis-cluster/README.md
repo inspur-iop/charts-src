@@ -5,7 +5,8 @@
 ## TL;DR;
 
 ```bash
-$ helm install stable/redis-cluster
+$ helm repo add inspur https://inspur-iop.github.io/charts
+$ helm install inspur/redis-cluster
 ```
 
 ## Introduction
@@ -22,7 +23,8 @@ This chart bootstraps a [Redis](https://redis.io) highly available distributed c
 To install the chart
 
 ```bash
-$ helm install incubator/redis-cluster
+$ helm repo add inspur https://inspur-iop.github.io/charts
+$ helm install inspur/redis-cluster
 ```
 
 The command deploys Redis Cluster on the Kubernetes cluster in the default configuration. By default this chart install 3 shards and one replica for each shard. The [configuration](#configuration) section lists the parameters that can be configured during installation.

@@ -5,7 +5,8 @@
 ## TL;DR;
 
 ```console
-$ helm install influxdb-srelay --values values.yaml
+$ helm repo add inspur https://inspur-iop.github.io/charts
+$ helm install inspur/influxdb-srelay --values values.yaml
 ```
 
 ## Introduction
@@ -24,7 +25,8 @@ $ helm install influxdb-srelay --values values.yaml
 To install the chart with the release name `my-release`:
 
 ```bash
-$ helm install --name my-release influxdb-srelay --values values.yaml
+$ helm repo add inspur https://inspur-iop.github.io/charts
+$ helm install --name my-release inspur/influxdb-srelay --values values.yaml
 ```
 
 The command deploys InfluxDB-srelay on the Kubernetes cluster in the default configuration. The [Parameters](#parameters) section lists the parameters that can be configured during installation.
