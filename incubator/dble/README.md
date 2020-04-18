@@ -5,7 +5,8 @@
 ## TL;DR;
 
 ```console
-$ helm install dble --values values.yaml
+$ helm repo add inspur https://inspur-iop.github.io/charts
+$ helm install inspur/dble --values values.yaml
 ```
 
 ## Introduction
@@ -36,7 +37,8 @@ Support Distributed Transaction using two-phase commit. You can choose normal mo
 To install the chart with the release name `my-release`:
 
 ```bash
-$ helm install --name my-release dble --values values.yaml
+$ helm repo add inspur https://inspur-iop.github.io/charts
+$ helm install --name my-release inspur/dble --values values.yaml
 ```
 
 The command deploys DBLE on the Kubernetes cluster in the default configuration. The [Parameters](#parameters) section lists the parameters that can be configured during installation.
