@@ -1,6 +1,6 @@
 apiVersion: v1
 name: influxdb-srelay
-version: 0.0.1
+version: 0.0.2
 appVersion: 0.6.0
 description: An InfluxDB proxy for achieving a highly available setup on 2 InfluxDB instances.
 keywords:
