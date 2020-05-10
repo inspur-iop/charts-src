@@ -134,9 +134,9 @@ spec:
           REDIS_SERVER_PORT={{ $root.Values.redis.port }}
           REDIS_CLUSTER_BUS_PORT=$(($REDIS_SERVER_PORT+10000))
           PEER_ANNOUNCE_IP=$(getent hosts "$SERVICE-announce-$PEER_INDEX" | awk '{ print $1 }')
-          CLUSTER_STATUS=$(redis-cli -h "$PEER_ANNOUNCE_IP" -p "$REDIS_SERVER_PORT" CLUSTER INFO | grep cluster_state | grep -v "fail" | wc -l)
+          CLUSTER_STATUS=$(redis-cli -h "$PEER_ANNOUNCE_IP" -p "$REDIS_SERVER_PORT" {{ if $root.Values.auth }} -a "$AUTH" --no-auth-warning{{ end }} CLUSTER INFO | grep cluster_state | grep -v "fail" | wc -l)
           if [ $CLUSTER_STATUS -eq 1 ];then
-            CLUSTER_NODES_INFO=$(redis-cli -h "$PEER_ANNOUNCE_IP" -p "$REDIS_SERVER_PORT" CLUSTER NODES)
+            CLUSTER_NODES_INFO=$(redis-cli -h "$PEER_ANNOUNCE_IP" -p "$REDIS_SERVER_PORT" {{ if $root.Values.auth }} -a "$AUTH" --no-auth-warning{{ end }} CLUSTER NODES)
             echo "$CLUSTER_NODES_INFO" > $CONF_DIR/nodes.conf
             awk '{gsub(/myself,/, "")}$2' $CONF_DIR/nodes.conf | tee $CONF_DIR/tmp.conf
             MATCH_REGEX=''"$ANNOUNCE_IP"':'"$REDIS_SERVER_PORT"'@'"$REDIS_CLUSTER_BUS_PORT"' '
