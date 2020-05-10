@@ -42,6 +42,7 @@ tolerations: {}
 hardAntiAffinity: false
 
 persistentVolume:
+  enabled: true
   ## redis-cluster data Persistent Volume Storage Class
   ## If defined, storageClassName: <storageClass>
   ## If set to "-", storageClassName: "", which disables dynamic provisioning
