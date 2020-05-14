@@ -67,7 +67,7 @@ sysctl:
     sysctl -w net.core.somaxconn=10000
     echo never > /host-sys/kernel/mm/transparent_hugepage/enabled
   mountHostSys: true
-
+podAnnotations: {}
 # NOTE: Prometheus exporter is NOT SUPPORTED right now, Do Not use the configurations below!
 
 # Prometheus exporter specific configuration options
