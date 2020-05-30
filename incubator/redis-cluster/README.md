@@ -71,6 +71,7 @@ The following table lists the configurable parameters of the Redis chart and the
 | `persistentVolume.accessModes`   | ReadWriteOnce or ReadOnly                                                               | `ReadWriteOnce`         |
 | `persistentVolume.size`          | Size of persistent volume claim                                                         | `1Gi`                   |
 | `persistentVolume.annotations`   | Annotations of persistent volume claim                                                  | `{}`                    |
+| `podAnnotations`                 | Annontations of pod                                                                      | `{}`                    |
 | `sysctl.enabled`                 | Enable an init container to modify Kernel settings                                      | `false`                 |
 | `sysctl.command`                 | sysctl command to execute                                                               | []                      |
 | `sysctl.image`                   | sysctl Init container image name                                                        | `busybox`               |

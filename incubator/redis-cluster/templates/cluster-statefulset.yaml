@@ -23,6 +23,9 @@ spec:
   template:
     metadata:
       annotations:
+          {{- if $root.Values.podAnnotations }}
+{{ toYaml $root.Values.podAnnotations | indent 8 }}
+          {{- end }}
       labels:
         release: {{ $root.Release.Name }}
         app: {{ template "redis-cluster.name" $root }}
